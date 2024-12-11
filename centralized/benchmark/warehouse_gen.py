@@ -2,6 +2,7 @@
 import sys
 sys.path.insert(0, '../')
 import argparse
+import math
 import random
 import yaml
 from itertools import combinations
@@ -34,28 +35,38 @@ def generate_goals(args):
     return random.sample(feasible_goals, args.agents)
 
 def place_agents(args):
-    starts = []
-    goals = generate_goals(args)
-    if goals == []:
-        return []
-    if args.placement == 'adjacent':
-        if args.agents > 6 * args.height + 8 * args.width + 4:
+    feasible_starts = []
+    max_agents = 6 * args.height + 8 * args.width + 4
+    if args.agents > max_agents:
             print("Too many agents!")
             return []
-        for i in range(args.agents):
-            if i < 4 * args.width + 1:
-                starts.append([i+1, 0])
-            elif i < 3 * args.height + 4 * args.width + 2:
-                starts.append([4 * args.width + 2, i-4*args.width])
-            elif i < 3 * args.height + 8 * args.width + 3:
-                starts.append([3 * args.height + 8 * args.width + 3 - i, 3 * args.height + 2])
-            else:
-                starts.append([0, 6 * args.height + 8 * args.width + 4 - i])
+    for i in range(max_agents):
+        if i < 4 * args.width + 1:
+            feasible_starts.append([i+1, 0])
+        elif i < 3 * args.height + 4 * args.width + 2:
+            feasible_starts.append([4 * args.width + 2, i-4*args.width])
+        elif i < 3 * args.height + 8 * args.width + 3:
+            feasible_starts.append([3 * args.height + 8 * args.width + 3 - i, 3 * args.height + 2])
+        else:
+            feasible_starts.append([0, 6 * args.height + 8 * args.width + 4 - i])
+    starts = []
+    if args.placement == 'adjacent':
+        starts = feasible_starts[:args.agents]
+    elif args.placement == 'spaced':
+        starts = [feasible_starts[math.floor(i*max_agents/args.agents)] for i in range(args.agents)]
+    elif args.placement == 'random':
+        starts = random.sample(feasible_starts, args.agents)
     else:
         print("Invalid agent placement strategy")
         return []
+    goals = generate_goals(args)
+    if goals == []:
+        return []
     agents = [{'start': starts[i], 'goal': goals[i], 'name': 'agent'+str(i)} for i in range(args.agents)]
     return agents
+
+def tuple_representer(dumper, value):
+    return dumper.represent_sequence('tag:yaml.org,2002:python/tuple', value)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -79,10 +90,11 @@ def main():
 
     # Write to file
     yaml_file = {'agents': agents, 'map': warehouse_map}
+    yaml.add_representer(tuple, tuple_representer)
     # Note: only one map of each height/width/agent/placement configuration can exist at once at the moment
     file_name = "warehouse/map_" + str(args.height) + "by" + str(args.width) + "_agents" + str(args.agents) + "_" + args.placement + ".yaml"
     with open(file_name, 'w') as input_yaml:
-        yaml.safe_dump(yaml_file, input_yaml)
+        yaml.dump(yaml_file, input_yaml, default_flow_style=True)
 
 if __name__ == "__main__":
     main()
