@@ -14,6 +14,7 @@ from itertools import combinations
 from copy import deepcopy
 
 from cbs.a_star import AStar
+from cbs.dijkstra import Dijkstra
 
 class Location(object):
     def __init__(self, x=-1, y=-1):
@@ -106,6 +107,7 @@ class Environment(object):
         self.constraint_dict = {}
 
         self.a_star = AStar(self)
+        self.dijkstra = Dijkstra(self)
 
     def get_neighbors(self, state):
         neighbors = []
@@ -223,10 +225,14 @@ class Environment(object):
 
             self.agent_dict.update({agent['name']:{'start':start_state, 'goal':goal_state}})
 
-    def compute_solution(self):
+    def compute_solution(self, use_dijkstra=False):
         solution = {}
         for agent in self.agent_dict.keys():
             self.constraints = self.constraint_dict.setdefault(agent, Constraints())
+            # local_solution = self.a_star.search(agent)
+        if use_dijkstra:
+            local_solution = self.dijkstra.search(agent)
+        else:
             local_solution = self.a_star.search(agent)
             if not local_solution:
                 return False
@@ -312,6 +318,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("param", help="input file containing map and obstacles")
     parser.add_argument("output", help="output file with the schedule")
+    parser.add_argument("--algorithm", choices=["astar", "dijkstra"], default="astar",
+                    help="Choose the pathfinding algorithm to use (default: astar)")
+
     args = parser.parse_args()
 
     # Read from input file
@@ -327,17 +336,20 @@ def main():
 
     env = Environment(dimension, agents, obstacles)
 
+    use_dijkstra = args.algorithm == "dijkstra"
+
     # Searching
     cbs = CBS(env)
-    solution = cbs.search()
+    solution = cbs.search() if not use_dijkstra else env.compute_solution(use_dijkstra=True)
     if not solution:
         print(" Solution not found" )
         return
 
     # Write to output file
-    output = dict()
-    output["schedule"] = solution
-    output["cost"] = env.compute_solution_cost(solution)
+    output = {
+        "schedule": solution,
+        "cost": env.compute_solution_cost(solution)
+    }
     with open(args.output, 'w') as output_yaml:
         yaml.safe_dump(output, output_yaml)
 
