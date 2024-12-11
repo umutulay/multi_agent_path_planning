@@ -2,8 +2,6 @@
 
 AStar search
 
-author: Ashwin Bose (@atb033)
-
 """
 
 class AStar():
